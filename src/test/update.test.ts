@@ -19,17 +19,6 @@ const request = (server: http.Server, path: string) => new Promise<{ status: num
 test('pixel update endpoint returns update metadata', async () => {
   const server = createServer({
     proxy: async () => ({ status: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from('{}') }),
-    readUpdateJson: async () => JSON.stringify({
-      data: {
-        versionCode: 9,
-        versionName: '1.3.3',
-        message: 'نسخه جدید Pixel منتشر شد.',
-        isForce: false,
-        ignoreButtonText: 'بعداً',
-        splashImageUrl: '',
-        links: [{ text: 'دانلود از بازار', url: 'https://cafebazaar.ir/' }],
-      },
-    }),
   });
 
   await new Promise<void>((resolve) => server.listen(0, resolve));
@@ -54,7 +43,6 @@ test('health and proxy routes still work', async () => {
       calls.push(path);
       return { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' }, body: Buffer.from('{"ok":true}') };
     },
-    readUpdateJson: async () => JSON.stringify({ data: { versionCode: 9, versionName: '1.3.3', message: '', isForce: false, ignoreButtonText: '', splashImageUrl: '', links: [] } }),
   });
 
   await new Promise<void>((resolve) => server.listen(0, resolve));

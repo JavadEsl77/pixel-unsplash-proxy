@@ -1,5 +1,6 @@
 import http, { IncomingMessage, ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { loadConfig, type AppConfig } from './config.js';
 import { isAllowedPath, proxyToUnsplash, type ProxyResult } from './proxy.js';
 import { RateLimiter } from './rate-limit.js';
@@ -22,7 +23,7 @@ export const createServer = (options: CreateServerOptions = {}) => {
   const config = options.config ?? loadConfig();
   const limiter = new RateLimiter(config.rateLimitWindowMs, config.rateLimitMax);
   const proxy = options.proxy ?? proxyToUnsplash;
-  const readUpdateJson = options.readUpdateJson ?? (() => readFile(new URL('../update.json', import.meta.url), 'utf8'));
+  const readUpdateJson = options.readUpdateJson ?? (() => readFile(path.join(process.cwd(), 'update.json'), 'utf8'));
 
   return http.createServer(async (req, res) => {
     const method = req.method ?? 'GET';
