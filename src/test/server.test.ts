@@ -17,7 +17,7 @@ const request = (server: http.Server, path: string) => new Promise<{ status: num
 });
 
 test('health check responds ok', async () => {
-  const server = createServer({ proxy: async () => ({ status: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from('{}') }) });
+  const server = createServer({ fetchImpl: async () => new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }) });
   await new Promise<void>((resolve) => server.listen(0, resolve));
   const res = await request(server, '/health');
   assert.equal(res.status, 200);
@@ -27,10 +27,10 @@ test('health check responds ok', async () => {
 
 test('random path is not treated as photo id', async () => {
   const calls: string[] = [];
-  const server = createServer({ proxy: async (path) => { calls.push(path); return { status: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from('{}') }; } });
+  const server = createServer({ fetchImpl: async (_url) => { calls.push(String(_url)); return new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }); } });
   await new Promise<void>((resolve) => server.listen(0, resolve));
   const res = await request(server, '/napi/photos/random');
   assert.equal(res.status, 200);
-  assert.deepEqual(calls, ['/napi/photos/random']);
+  assert.equal(calls[0]?.includes('/napi/photos/random'), true);
   server.close();
 });

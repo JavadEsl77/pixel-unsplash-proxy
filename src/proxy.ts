@@ -36,7 +36,8 @@ const hopByHop = new Set([
 const filterHeaders = (headers: Headers) => {
   const result: Record<string, string> = {};
   headers.forEach((value, key) => {
-    if (!hopByHop.has(key.toLowerCase())) result[key] = value;
+    const lower = key.toLowerCase();
+    if (!hopByHop.has(lower) && lower !== 'content-length' && lower !== 'content-encoding') result[key] = value;
   });
   return result;
 };

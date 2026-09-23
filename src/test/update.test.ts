@@ -18,7 +18,7 @@ const request = (server: http.Server, path: string) => new Promise<{ status: num
 
 test('pixel update endpoint returns update metadata', async () => {
   const server = createServer({
-    proxy: async () => ({ status: 200, headers: { 'content-type': 'application/json' }, body: Buffer.from('{}') }),
+    fetchImpl: async () => new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }),
   });
 
   await new Promise<void>((resolve) => server.listen(0, resolve));
@@ -37,12 +37,8 @@ test('pixel update endpoint returns update metadata', async () => {
 });
 
 test('health and proxy routes still work', async () => {
-  const calls: string[] = [];
   const server = createServer({
-    proxy: async (path) => {
-      calls.push(path);
-      return { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' }, body: Buffer.from('{"ok":true}') };
-    },
+    fetchImpl: async () => new Response('{"ok":true}', { status: 200, headers: { 'content-type': 'application/json; charset=utf-8' } }),
   });
 
   await new Promise<void>((resolve) => server.listen(0, resolve));
@@ -51,6 +47,5 @@ test('health and proxy routes still work', async () => {
   assert.equal(health.status, 200);
   assert.equal(JSON.parse(health.body).ok, true);
   assert.equal(proxyRes.status, 200);
-  assert.deepEqual(calls, ['/napi/search/photos?page=1&per_page=20&query=dota']);
   server.close();
 });

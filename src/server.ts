@@ -20,6 +20,7 @@ type CreateServerOptions = {
   proxy?: (pathWithQuery: string, userAgent: string, timeoutMs: number) => Promise<ProxyResult>;
   readUpdateJson?: () => Promise<string>;
   proxyImage?: (pathWithQuery: string, userAgent: string, timeoutMs: number) => Promise<ProxyResult>;
+  fetchImpl?: typeof fetch;
 };
 
 export const createServer = (options: CreateServerOptions = {}) => {
@@ -27,6 +28,7 @@ export const createServer = (options: CreateServerOptions = {}) => {
   const limiter = new RateLimiter(config.rateLimitWindowMs, config.rateLimitMax);
   const proxy = options.proxy ?? proxyToUnsplash;
   const proxyImage = options.proxyImage ?? proxyToUnsplashImages;
+  const fetchImpl = options.fetchImpl ?? fetch;
   const readUpdateJson = options.readUpdateJson ?? (() => readFile(path.join(process.cwd(), 'update.json'), 'utf8'));
 
   return http.createServer(async (req, res) => {
@@ -82,9 +84,20 @@ export const createServer = (options: CreateServerOptions = {}) => {
     }
     if (!isAllowedPath(url.pathname)) return json(res, 404, { ok: false, error: 'Not found' });
 
-    const upstream = await proxy(pathWithQuery, config.userAgent, config.upstreamTimeoutMs);
-    res.writeHead(upstream.status, upstream.headers);
-    res.end(Buffer.from(upstream.body));
+    const upstream = await fetchImpl(`https://unsplash.com${pathWithQuery}`, {
+      method: 'GET',
+      headers: { 'User-Agent': config.userAgent, Accept: '*/*' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(config.upstreamTimeoutMs),
+    });
+    const headers: Record<string, string> = {};
+    upstream.headers.forEach((value, key) => {
+      const lower = key.toLowerCase();
+      if (lower !== 'content-length' && lower !== 'content-encoding' && lower !== 'transfer-encoding' && lower !== 'connection' && lower !== 'keep-alive' && lower !== 'proxy-authenticate' && lower !== 'proxy-authorization' && lower !== 'te' && lower !== 'trailer' && lower !== 'upgrade') headers[key] = value;
+    });
+    res.writeHead(upstream.status, headers);
+    if (!upstream.body) return res.end();
+    await pipeline(Readable.fromWeb(upstream.body as any), res);
   });
 };
 
