@@ -1,0 +1,16 @@
+{
+  "data": {
+    "versionCode": 9,
+    "versionName": "1.3.3",
+    "message": "نسخه جدید Pixel منتشر شد.",
+    "isForce": false,
+    "ignoreButtonText": "بعداً",
+    "splashImageUrl": "",
+    "links": [
+      {
+        "text": "دانلود از بازار",
+        "url": "https://cafebazaar.ir/"
+      }
+    ]
+  }
+}
