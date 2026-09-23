@@ -1,8 +1,10 @@
 import http, { IncomingMessage, ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
+import { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import { loadConfig, type AppConfig } from './config.js';
-import { isAllowedPath, proxyToUnsplash, type ProxyResult } from './proxy.js';
+import { isAllowedPath, proxyToUnsplash, proxyToUnsplashImages, type ProxyResult } from './proxy.js';
 import { RateLimiter } from './rate-limit.js';
 
 const json = (res: ServerResponse, statusCode: number, payload: unknown) => {
@@ -17,12 +19,14 @@ type CreateServerOptions = {
   config?: AppConfig;
   proxy?: (pathWithQuery: string, userAgent: string, timeoutMs: number) => Promise<ProxyResult>;
   readUpdateJson?: () => Promise<string>;
+  proxyImage?: (pathWithQuery: string, userAgent: string, timeoutMs: number) => Promise<ProxyResult>;
 };
 
 export const createServer = (options: CreateServerOptions = {}) => {
   const config = options.config ?? loadConfig();
   const limiter = new RateLimiter(config.rateLimitWindowMs, config.rateLimitMax);
   const proxy = options.proxy ?? proxyToUnsplash;
+  const proxyImage = options.proxyImage ?? proxyToUnsplashImages;
   const readUpdateJson = options.readUpdateJson ?? (() => readFile(path.join(process.cwd(), 'update.json'), 'utf8'));
 
   return http.createServer(async (req, res) => {
@@ -47,6 +51,33 @@ export const createServer = (options: CreateServerOptions = {}) => {
         return res.end(body);
       } catch {
         return json(res, 500, { ok: false, error: 'Update metadata unavailable' });
+      }
+    }
+    if (url.pathname.startsWith('/images/')) {
+      if (options.proxyImage) {
+        const upstream = await options.proxyImage(pathWithQuery.slice('/images'.length), config.userAgent, config.upstreamTimeoutMs);
+        const headers: Record<string, string> = {};
+        if (upstream.headers['content-type']) headers['content-type'] = upstream.headers['content-type'];
+        if (upstream.headers['cache-control']) headers['cache-control'] = upstream.headers['cache-control'];
+        res.writeHead(upstream.status, headers);
+        return res.end(Buffer.from(upstream.body));
+      }
+      try {
+        const upstream = await fetch(`https://images.unsplash.com${pathWithQuery.slice('/images'.length)}`, {
+          method: 'GET',
+          headers: { 'User-Agent': config.userAgent, Accept: '*/*' },
+          redirect: 'follow',
+          signal: AbortSignal.timeout(config.upstreamTimeoutMs),
+        });
+        const headers: Record<string, string> = {};
+        if (upstream.headers.get('content-type')) headers['content-type'] = upstream.headers.get('content-type') as string;
+        if (upstream.headers.get('cache-control')) headers['cache-control'] = upstream.headers.get('cache-control') as string;
+        res.writeHead(upstream.status, headers);
+        if (!upstream.body) return res.end();
+        await pipeline(Readable.fromWeb(upstream.body as any), res);
+        return;
+      } catch {
+        return json(res, 502, { ok: false, error: 'Upstream request failed' });
       }
     }
     if (!isAllowedPath(url.pathname)) return json(res, 404, { ok: false, error: 'Not found' });

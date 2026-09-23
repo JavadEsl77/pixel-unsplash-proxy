@@ -41,8 +41,7 @@ const filterHeaders = (headers: Headers) => {
   return result;
 };
 
-export const proxyToUnsplash = async (pathWithQuery: string, userAgent: string, timeoutMs: number): Promise<ProxyResult> => {
-  const upstreamUrl = new URL(`https://unsplash.com${pathWithQuery}`);
+const requestUpstream = async (upstreamUrl: URL, userAgent: string, timeoutMs: number): Promise<ProxyResult> => {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -61,4 +60,12 @@ export const proxyToUnsplash = async (pathWithQuery: string, userAgent: string, 
   } finally {
     clearTimeout(timeout);
   }
+};
+
+export const proxyToUnsplash = async (pathWithQuery: string, userAgent: string, timeoutMs: number): Promise<ProxyResult> => {
+  return requestUpstream(new URL(`https://unsplash.com${pathWithQuery}`), userAgent, timeoutMs);
+};
+
+export const proxyToUnsplashImages = async (pathWithQuery: string, userAgent: string, timeoutMs: number): Promise<ProxyResult> => {
+  return requestUpstream(new URL(`https://images.unsplash.com${pathWithQuery}`), userAgent, timeoutMs);
 };
