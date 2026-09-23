@@ -76,3 +76,13 @@ curl "http://localhost:8080/napi/topics?page=1&per_page=20"
 ```
 
 These requests forward the path and query string to Unsplash and return the upstream status, content-type, and body.
+
+## 10. API smoke test
+
+Run the end-to-end API smoke test against a running server:
+
+```bash
+./scripts/test-api.sh
+```
+
+The script checks all implemented API endpoints and prints a pass/fail report.
